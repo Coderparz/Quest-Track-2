@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reaction Speed Test</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --text: #1d1f24;
+    --muted: #5f6470;
+    --line: #dde0e6;
+    --idle: #3b6fd8;
+    --wait: #d83b3b;
+    --go: #22a35a;
+    --fail: #e08a1e;
+    --done: #6a4fc9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171c;
+      --card: #1f2229;
+      --text: #eceef2;
+      --muted: #a3a8b3;
+      --line: #333743;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.5;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 40px;
+  }
+  h1 { margin: 0 0 4px; font-size: 1.8rem; }
+  .sub { margin: 0 0 20px; color: var(--muted); }
+
+  .howto {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+  }
+  .howto h2 { margin: 0 0 6px; font-size: 1rem; }
+  .howto ol { margin: 0; padding-left: 20px; }
+  .howto li { margin: 2px 0; }
+
+  #box {
+    width: 100%;
+    min-height: 280px;
+    border: none;
+    border-radius: 16px;
+    color: #fff;
+    font: inherit;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 20px;
+    text-align: center;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.08s;
+  }
+  #box:focus-visible { outline: 4px solid var(--text); outline-offset: 3px; }
+  #box .big { font-size: 2.2rem; font-weight: 700; }
+  #box .small { font-size: 1.05rem; opacity: 0.92; }
+  .idle { background: var(--idle); }
+  .wait { background: var(--wait); }
+  .go   { background: var(--go); }
+  .fail { background: var(--fail); }
+  .done { background: var(--done); }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .stat .label { font-size: 0.85rem; color: var(--muted); }
+  .stat .value { font-size: 1.4rem; font-weight: 700; }
+
+  .tries {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .try {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 0.95rem;
+  }
+  .try .n { display: block; font-size: 0.75rem; color: var(--muted); }
+
+  .bottom { margin-top: 16px; text-align: center; }
+  #resetBest {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  @media (max-width: 480px) {
+    #box { min-height: 220px; }
+    #box .big { font-size: 1.7rem; }
+    .stat .value { font-size: 1.1rem; }
+    .try { font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Reaction Speed Test</h1>
+  <p class="sub">How fast can you react? Take 5 tries and see your average.</p>
+
+  <section class="howto">
+    <h2>How to play</h2>
+    <ol>
+      <li>Click the blue box (or press <b>Space</b>) to start.</li>
+      <li>The box turns <b style="color:var(--wait)">red</b>. Wait&hellip;</li>
+      <li>When it turns <b style="color:var(--go)">green</b>, click as fast as you can!</li>
+      <li>Clicking while it's still red is a <b>fail</b> &mdash; that try doesn't count, so do it again.</li>
+      <li>After 5 good tries you get your average. Your best average is saved.</li>
+    </ol>
+  </section>
+
+  <button id="box" class="idle" type="button">
+    <span class="big" id="msg">Click to start</span>
+    <span class="small" id="hint">5 tries · click when it turns green</span>
+  </button>
+
+  <div class="stats">
+    <div class="stat"><div class="label">Try</div><div class="value" id="tryNum">0 / 5</div></div>
+    <div class="stat"><div class="label">Average</div><div class="value" id="avg">–</div></div>
+    <div class="stat"><div class="label">Best average</div><div class="value" id="best">–</div></div>
+  </div>
+
+  <div class="tries" id="tries"></div>
+
+  <div class="bottom">
+    <button id="resetBest" type="button">Reset best score</button>
+  </div>
+</main>
+
+<script>
+  const TOTAL = 5;
+  const BEST_KEY = "reactionBestAverage";
+
+  const box = document.getElementById("box");
+  const msg = document.getElementById("msg");
+  const hint = document.getElementById("hint");
+  const tryNumEl = document.getElementById("tryNum");
+  const avgEl = document.getElementById("avg");
+  const bestEl = document.getElementById("best");
+  const triesEl = document.getElementById("tries");
+
+  // state: idle | wait | go | result | fail | done
+  let state = "idle";
+  let times = [];
+  let timer = null;
+  let goTime = 0;
+
+  function loadBest() {
+    try {
+      const v = parseInt(localStorage.getItem(BEST_KEY), 10);
+      return isNaN(v) ? null : v;
+    } catch (e) { return null; }
+  }
+  function saveBest(v) {
+    try { localStorage.setItem(BEST_KEY, String(v)); } catch (e) {}
+  }
+  let best = loadBest();
+
+  function average() {
+    if (times.length === 0) return null;
+    return Math.round(times.reduce((a, b) => a + b, 0) / times.length);
+  }
+
+  function setBox(cls, big, small) {
+    box.className = cls;
+    msg.textContent = big;
+    hint.textContent = small;
+  }
+
+  function render() {
+    tryNumEl.textContent = times.length + " / " + TOTAL;
+    const a = average();
+    avgEl.textContent = a === null ? "–" : a + " ms";
+    bestEl.textContent = best === null ? "–" : best + " ms";
+    triesEl.innerHTML = "";
+    for (let i = 0; i < TOTAL; i++) {
+      const d = document.createElement("div");
+      d.className = "try";
+      d.innerHTML = '<span class="n">#' + (i + 1) + "</span>" +
+        (times[i] !== undefined ? times[i] + " ms" : "–");
+      triesEl.appendChild(d);
+    }
+  }
+
+  function startWaiting() {
+    state = "wait";
+    setBox("wait", "Wait for green…", "Don't click yet!");
+    const delay = 1500 + Math.random() * 3000; // 1.5 to 4.5 seconds
+    timer = setTimeout(() => {
+      state = "go";
+      goTime = performance.now();
+      setBox("go", "CLICK!", "Now!");
+    }, delay);
+  }
+
+  function handlePress() {
+    if (state === "idle" || state === "done") {
+      times = [];
+      render();
+      startWaiting();
+    } else if (state === "wait") {
+      clearTimeout(timer);
+      state = "fail";
+      setBox("fail", "Too early! ✋", "That try doesn't count. Click to try again.");
+    } else if (state === "go") {
+      const t = Math.round(performance.now() - goTime);
+      times.push(t);
+      render();
+      if (times.length >= TOTAL) {
+        const a = average();
+        let line = "Your average: " + a + " ms";
+        if (best === null || a < best) {
+          best = a;
+          saveBest(best);
+          line += " · New best! 🎉";
+        }
+        render();
+        state = "done";
+        setBox("done", t + " ms", line + " · Click to play again");
+      } else {
+        state = "result";
+        setBox("idle", t + " ms", "Click for try " + (times.length + 1) + " of " + TOTAL);
+      }
+    } else if (state === "result" || state === "fail") {
+      startWaiting();
+    }
+  }
+
+  // pointerdown reacts faster than click
+  box.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    handlePress();
+  });
+  document.addEventListener("keydown", (e) => {
+    if ((e.code === "Space" || e.code === "Enter") && !e.repeat) {
+      e.preventDefault();
+      handlePress();
+    }
+  });
+
+  document.getElementById("resetBest").addEventListener("click", () => {
+    best = null;
+    try { localStorage.removeItem(BEST_KEY); } catch (e) {}
+    render();
+  });
+
+  render();
+</script>
+</body>
+</html>
